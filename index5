@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Gamedev Canvas Workshop</title>
+    <style>
+        * { padding: 0; margin: 0; }
+        canvas { background: #eee; display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+
+<canvas id="myCanvas" width="480" height="320"></canvas>
+
+<script>
+    // JavaScriptのコードがここに入ります
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+
+    var x = canvas.width/2;
+    var y = canvas.height-30;
+    var dx = 2;
+    var dy = -2;
+
+    var ballRadius = 10;
+
+    //パドルのクラス
+    const paddle = class {
+        constructor(height, width){
+            this.height = height;
+            this.width = width;
+            this.x = (canvas.width - width)/2;   
+        }
+        
+        get getX(){
+            return this.x;
+        }
+
+        set setX(x){
+            this.x = x;
+        }
+
+        get getHeight(){
+            return this.height;
+        }
+
+        get getWidth(){
+            return this.width;
+        }
+
+        drawPaddle() {
+                ctx.beginPath();
+                ctx.rect(this.x, canvas.height-this.height, this.width, this.height);
+                ctx.fillStyle = "#0095DD";
+                ctx.fill();
+                ctx.closePath();
+            }
+    }
+    
+    var pad = new paddle(10,70)
+
+
+    var rightPressed = false;
+    var leftPressed = false;
+
+    var brickstate = new Object();
+    brickstate.rowCount = 3;
+    brickstate.columnCount = 6;
+    brickstate.width = 50;
+    brickstate.height = 18;
+    brickstate.padding = 20;
+    brickstate.offsetTop = 30;
+    brickstate.offsetLeft = 30;
+    
+    //ブロック関連
+    //var brickstateRowCount = 3;
+    //var brickstateColumnCount = 6;
+    //var brickstateWidth = 50;
+    //var brickstateHeight = 18;
+    //var brickstatePadding = 20;
+    //var brickstateOffsetTop = 30;
+    //var brickstateOffsetLeft = 30;
+
+    var score = 0;
+
+    var lives = 3;
+
+    //ボールの加速用変数
+   // var accel = 1;
+
+    //反射用の変数
+    var ref = 1;
+
+    var bricks = [];
+    for(var c=0; c<brickstate.columnCount; c++) {
+        bricks[c] = [];
+        for(var r=0; r<brickstate.rowCount; r++) {
+            bricks[c][r] = { x: 0, y: 0, status : 3 };
+        }
+    }
+
+
+
+    function drawBridcks() {
+        for(var c=0; c<brickstate.columnCount; c++) {
+            for(var r=0; r<brickstate.rowCount; r++) {
+                if(bricks[c][r].status == 1){
+                    var brickstateX = (c*(brickstate.width+brickstate.padding))+brickstate.offsetLeft;
+                    var brickstateY = (r*(brickstate.height+brickstate.padding))+brickstate.offsetTop;
+                    bricks[c][r].x = brickstateX;
+                    bricks[c][r].y = brickstateY;
+                    ctx.beginPath();
+                    ctx.rect(brickstateX, brickstateY, brickstate.width, brickstate.height);
+                    ctx.fillStyle = "#ff7fbf";
+                    ctx.fill();
+                    ctx.closePath();
+                }
+
+                else if(bricks[c][r].status == 2){
+                    var brickstateX = (c*(brickstate.width+brickstate.padding))+brickstate.offsetLeft;
+                    var brickstateY = (r*(brickstate.height+brickstate.padding))+brickstate.offsetTop;
+                    bricks[c][r].x = brickstateX;
+                    bricks[c][r].y = brickstateY;
+                    ctx.beginPath();
+                    ctx.rect(brickstateX, brickstateY, brickstate.width, brickstate.height);
+                    ctx.fillStyle = "#bf7fff";
+                    ctx.fill();
+                    ctx.closePath();
+                }
+
+                else if(bricks[c][r].status == 3){
+                    var brickstateX = (c*(brickstate.width+brickstate.padding))+brickstate.offsetLeft;
+                    var brickstateY = (r*(brickstate.height+brickstate.padding))+brickstate.offsetTop;
+                    bricks[c][r].x = brickstateX;
+                    bricks[c][r].y = brickstateY;
+                    ctx.beginPath();
+                    ctx.rect(brickstateX, brickstateY, brickstate.width, brickstate.height);
+                    ctx.fillStyle = "#7f7fff";
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+        }
+    }
+
+    function drawBall() {
+    ctx.beginPath();
+    ctx.arc(x, y, ballRadius, 0, Math.PI*2);
+    ctx.fillStyle = "#0095DD";
+    ctx.fill();
+    ctx.closePath();
+    }
+
+    function drawHitpoint(){
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI*2);
+    ctx.fillStyle = "#e8383d";
+    ctx.fill();
+    ctx.closePath();
+    }
+
+
+    function drawPaddleLine() {
+        ctx.beginPath();
+        ctx.moveTo(pad.getX, canvas.height-pad.getHeight);
+        ctx.lineTo(pad.getX + (pad.getWidth / 2), canvas.height);
+        ctx.lineTo(pad.getX + pad.getWidth, canvas.height-pad.getHeight);
+        ctx.fillStyle = "#e8383d";
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    function draw() {
+    // 描画コード
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBridcks();
+    drawBall();
+    drawHitpoint();
+    pad.drawPaddle();
+    drawPaddleLine();
+    drawScore();
+    drawLives();
+    collisionDetection();
+    x += dx// * accel;
+    y += dy// * accel;
+        if(x + dx > canvas.width-ballRadius || x + dx < ballRadius) {
+            dx = -dx;
+            //accel += 0.05;
+        }
+
+       if(y + dy < ballRadius) {
+            dy = -dy;
+            //accel += 0.05;
+        } else if(y + dy > canvas.height-ballRadius) {
+            if(x > pad.getX && x < pad.getX + pad.getWidth) {
+                ref = x - (pad.getX + 35);
+
+                dy = -dy;
+            if(dx > 0 && ref > 0 || dx < 0 && ref < 0){
+                dx = ref/6;
+            } else if(dx < 0 && ref < 0 || dx > 0 && ref > 0){
+                dx = -ref/6;
+            }
+                
+
+            //   accel += 0.05;
+            }
+        else {
+            lives--;
+            if(!lives){
+            alert("GAME OVER");
+            document.location.reload();
+        }
+        else {
+            alert("MISS");
+            x = canvas.width/2;
+            y = canvas.height-30;
+            dx = 2;
+            dy = -2;
+            pad.setX = (canvas.width-pad.getWidth)/2;
+        }
+
+        clearInterval(interval); // Needed for Chrome to end game
+        }
+    }
+
+        if(rightPressed && pad.getX < canvas.width-pad.getWidth) {
+            pad.setX = pad.getX + 7;
+        }
+
+        else if(leftPressed && pad.getX > 0) {
+            pad.setX = pad.getX - 7;
+        }
+        requestAnimationFrame(draw);
+    }
+
+    document.addEventListener("keydown", keyDownHandler, false);
+    document.addEventListener("keyup", keyUpHandler, false);
+    document.addEventListener("mousemove", mouseMoveHandler, false);
+
+    function mouseMoveHandler(e) {
+    var relativeX = e.clientX - canvas.offsetLeft;
+    if(relativeX > 0 && relativeX < canvas.width) {
+        pad.setX = relativeX - pad.getWidth/2;
+    }
+}
+    
+    function keyDownHandler(e) {
+        if(e.key == "Right" || e.key == "ArrowRight") {
+            rightPressed = true;
+    }
+        else if(e.key == "Left" || e.key == "ArrowLeft") {
+            leftPressed = true;
+        }
+    }
+
+    function keyUpHandler(e) {
+        if(e.key == "Right" || e.key == "ArrowRight") {
+            rightPressed = false;
+    }
+        else if(e.key == "Left" || e.key == "ArrowLeft") {
+            leftPressed = false;
+        }
+    }
+
+    function collisionDetection() {
+        for(var c=0; c<brickstate.columnCount; c++) {
+            for(var r=0; r<brickstate.rowCount; r++) {
+                var b = bricks[c][r];
+                if(b.status > 0){
+                    if(x > b.x && x < b.x+brickstate.width  && y > b.y && y < b.y+brickstate.height) {
+                        if(x > b.x && x < b.x+brickstate.width  && y > b.y + 2 && y < b.y+brickstate.height - 2){
+                        dx = -dx;
+                        }
+                        else{
+                            dy = -dy;
+                        }
+                        b.status--;
+                        score++;
+                        if(score == brickstate.rowCount*brickstate.columnCount * 3) {
+                            alert("ゲームクリア！ おめでとう!");
+                            document.location.reload();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function drawScore() {
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#0095DD";
+        ctx.fillText("Score: "+score +"00", 8, 20);
+    }
+
+    function drawLives() {
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#0095DD";
+        ctx.fillText("Lives: "+lives, canvas.width-65, 20);
+    }
+
+    var interval = draw();
+</script>
+
+</body>
+</html>
