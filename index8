@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Gamedev Canvas Workshop</title>
+    <style>
+        * { padding: 0; margin: 0; }
+        canvas { background: #eee; display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+
+<canvas id="myCanvas" width="480" height="320"></canvas>
+
+<script>
+    // JavaScriptのコードがここに入ります
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+
+    var dx = 2;
+    var dy = -2;
+
+    //ボールのクラス
+    const Ball = class {
+        constructor(x,y,radius){
+            this.ballX = x;
+            this.ballY = y;
+            this.radius = radius;
+        }
+
+        get getBallX(){
+            return this.ballX;
+        }
+
+        set setBallX(x){
+            this.ballX = x;
+        }
+
+        get getBallY(){
+            return this.ballY;
+        }
+
+        set setBallY(y){
+            this.ballY = y;
+        }
+
+        get getRadius(){
+            return this.radius;
+        }
+
+        drawBall() {
+        ctx.beginPath();
+        ctx.arc(this.ballX, this.ballY, this.radius, 0, Math.PI*2);
+        ctx.fillStyle = "#0095DD";
+        ctx.fill();
+        ctx.closePath();
+        }
+
+        drawHitpoint(){
+        ctx.beginPath();
+        ctx.arc(this.ballX, this.ballY, 2, 0, Math.PI*2);
+        ctx.fillStyle = "#26499d";
+        ctx.fill();
+        ctx.closePath();
+        }
+    }
+
+    //パドルのクラス
+    const Paddle = class {
+        constructor(height, width){
+            this.height = height;
+            this.width = width;
+            this.paddleX = (canvas.width - width)/2;   
+        }
+        
+        get getPaddleX(){
+            return this.paddleX;
+        }
+
+        set setPaddleX(x){
+            this.paddleX = x;
+        }
+
+        get getHeight(){
+            return this.height;
+        }
+
+        get getWidth(){
+            return this.width;
+        }
+
+        drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(this.paddleX, canvas.height-this.height, this.width, this.height);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.beginPath();
+            ctx.moveTo(this.paddleX, canvas.height-this.height);
+            ctx.lineTo(this.paddleX + (this.width / 2), canvas.height);
+            ctx.lineTo(this.paddleX + this.width, canvas.height-this.height);
+            ctx.fillStyle = "#e8383d";
+            ctx.fill();
+            ctx.closePath();
+            
+            ctx.beginPath();
+            ctx.moveTo(this.paddleX + (this.width / 2), canvas.height);
+            ctx.lineTo(this.paddleX + (this.width / 2), canvas.height-this.height)
+            ctx.strokeStyle = "#0095DD";
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        
+    }
+    
+    //ブロックのクラス
+    const BrickStatus = class {
+        constructor(){
+            this.rowCount = 3;
+            this.columnCount = 6;
+            this.width = 50;
+            this.height = 18;
+            this.padding = 20;
+            this.offsetTop = 30;
+            this.offsetLeft = 30;
+        }
+
+        get getBrickRow(){
+            return this.rowCount;
+        }
+
+        get getBrickColumn(){
+            return this.columnCount;
+        }
+
+        get getBrickWidth(){
+            return this.width;
+        }
+
+        get getBrickHeight(){
+            return this.height;
+        }
+
+        get getBrickPadding(){
+            return this.padding;
+        }
+
+        get getOffsetTop(){
+            return this.offsetTop;
+        }
+
+        get getOffsetLeft(){
+            return this.offsetLeft;
+        }
+    }
+
+    //キーボード感知
+    var rightPressed = false;
+    var leftPressed = false;
+
+    //スコア・コンボ
+    var score = 0;
+    var comboPercentage = 1;
+    var combo = 0;
+    var comboTotal = 0;
+    var brickBreak = 0;
+
+    //ライフ
+    var lives = 3;
+
+    //ボールの加速用変数
+    //var accel = 1;
+
+    //反射用の変数
+    var ref = 1;
+
+    //ゲームオーバーの判定用変数
+    var gameEnd = false;
+
+    var ball1 = new Ball(canvas.width/2,canvas.height-30,10)
+    var pad = new Paddle(10,70)
+    var brick = new BrickStatus()
+
+
+    var bricks = [];
+    for(var c=0; c<brick.getBrickColumn; c++) {
+        bricks[c] = [];
+        for(var r=0; r<brick.getBrickRow; r++) {
+            bricks[c][r] = { x: 0, y: 0, status : 3 };
+        }
+    }
+
+    function drawBricks() {
+        for(var c=0; c<brick.getBrickColumn; c++) {
+            for(var r=0; r<brick.getBrickRow; r++) {
+                if(bricks[c][r].status == 1){
+                    var color = "#ff7fbf";
+                }
+                else if(bricks[c][r].status == 2){
+                    var color = "#bf7fff";
+                }
+                else if(bricks[c][r].status == 3){
+                    var color = "#7f7fff"
+                }
+
+                if(bricks[c][r].status !== 0){
+                    var bricksX = ( c* (brick.getBrickWidth + brick.getBrickPadding)) + brick.getOffsetLeft;
+                    var bricksY = ( r* (brick.getBrickHeight + brick.getBrickPadding)) + brick.getOffsetTop;
+                    bricks[c][r].x = bricksX;
+                    bricks[c][r].y = bricksY;
+                    ctx.beginPath();
+                    ctx.rect(bricksX, bricksY, brick.getBrickWidth, brick.getBrickHeight);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    ctx.closePath();
+                }
+
+               
+            }
+        }
+    }
+
+    function draw() {
+    // 描画コード
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBricks();
+    ball1.drawBall();
+    ball1.drawHitpoint();
+    pad.drawPaddle();
+    drawScore();
+    drawCombo();
+    drawLives();
+    collisionDetection();
+    
+    if(gameEnd == true){
+        alert("GAME OVER\nScore " + score );
+        document.location.reload();
+    }
+
+    ball1.setBallX = ball1.getBallX + dx // * accel;
+    ball1.setBallY = ball1.getBallY + dy // * accel;
+        if(ball1.getBallX + dx > canvas.width-ball1.getRadius || ball1.getBallX + dx < ball1.getRadius) {
+            dx = -dx;
+            //accel += 0.05;
+        }
+
+       if(ball1.getBallY + dy < ball1.getRadius) {
+            dy = -dy;
+            //accel += 0.05;
+        } else if(ball1.getBallY + dy > canvas.height-ball1.getRadius) {
+            if(ball1.getBallX > pad.getPaddleX && ball1.getBallX < pad.getPaddleX + pad.getWidth) {
+                ref = ball1.getBallX - (pad.getPaddleX + 35);
+
+                dy = -dy;
+            if(dx > 0 && ref > 0 || dx < 0 && ref < 0){
+                dx = ref/6;
+            } else if(dx < 0 && ref < 0 || dx > 0 && ref > 0){
+                dx = -ref/6;
+            }
+                
+
+               //accel += 0.05;
+            }
+        else {
+            lives--;
+            combo = 0;
+            comboTotal = 0;
+            comboPercentage = 1;
+            if(!lives){
+               // drawGameScore();
+            gameEnd = true;
+                //alert("GAME OVER");
+           
+        }
+        else {
+                alert("MISS");
+            ball1.setBallX = canvas.width/2;
+            ball1.setBallY = canvas.height-30;
+            dx = 2;
+            dy = -2;
+            pad.setPaddleX = (canvas.width-pad.getWidth)/2;
+        }
+
+        clearInterval(interval); // Needed for Chrome to end game
+        }
+    }
+
+        if(rightPressed && pad.getPaddleX < canvas.width-pad.getWidth) {
+            pad.setPaddleX = pad.getPaddleX + 7;
+        }
+
+        else if(leftPressed && pad.getPaddleX > 0) {
+            pad.setPaddleX = pad.getPaddleX - 7;
+        }
+        requestAnimationFrame(draw);
+    }
+
+    document.addEventListener("keydown", keyDownHandler, false);
+    document.addEventListener("keyup", keyUpHandler, false);
+    document.addEventListener("mousemove", mouseMoveHandler, false);
+
+    function mouseMoveHandler(e) {
+    var relativeX = e.clientX - canvas.offsetLeft;
+    if(relativeX > 0 && relativeX < canvas.width) {
+        pad.setPaddleX = relativeX - pad.getWidth/2;
+    }
+}
+    
+    function keyDownHandler(e) {
+        if(e.key == "Right" || e.key == "ArrowRight") {
+            rightPressed = true;
+    }
+        else if(e.key == "Left" || e.key == "ArrowLeft") {
+            leftPressed = true;
+        }
+    }
+
+    function keyUpHandler(e) {
+        if(e.key == "Right" || e.key == "ArrowRight") {
+            rightPressed = false;
+    }
+        else if(e.key == "Left" || e.key == "ArrowLeft") {
+            leftPressed = false;
+        }
+    }
+
+    function collisionDetection() {
+        for(var c=0; c<brick.getBrickColumn; c++) {
+            for(var r=0; r<brick.getBrickRow; r++) {
+                var b = bricks[c][r];
+                if(b.status > 0){
+                    if(ball1.getBallX > b.x && ball1.getBallX < b.x+brick.getBrickWidth  && ball1.getBallY > b.y && ball1.getBallY < b.y+brick.getBrickHeight) {
+                        if(ball1.getBallX > b.x && ball1.getBallX < b.x+brick.getBrickWidth  && ball1.getBallY > b.y + 2 && ball1.getBallY < b.y+brick.getBrickHeight - 2){
+                            dx = -dx;
+                        }
+                        else{
+                            dy = -dy;
+                        }
+
+                        if(combo == 4){
+                            comboPercentage += 0.1;
+                            combo = 0;
+                            comboTotal++;
+                        }
+                        else{
+                            combo++;
+                            comboTotal++;
+                        }
+
+                        b.status--;
+                        brickBreak++;
+                        score += 100 * comboPercentage;
+
+                        if(brickBreak == brick.getBrickRow*brick.getBrickColumn * 3) {
+                            alert("ゲームクリア！ おめでとう!\nScore " + score );
+                            document.location.reload();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function drawScore() {
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#0095DD";
+        ctx.fillText("Score: "+score , 8, 20);
+    }
+
+    function drawCombo(){
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#0095DD";
+        ctx.fillText(comboTotal + "combo",110,20);
+    }
+
+    function drawGameScore() {
+        ctx.font = "32px Arial";
+        ctx.fillStyle = "#0095DD";
+        ctx.fillText("Score: "+score , 50, 300);
+    }
+
+    function drawLives() {
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#0095DD";
+        ctx.fillText("Lives: "+lives, canvas.width-65, 20);
+    }
+
+    var interval = draw();
+</script>
+
+</body>
+</html>
